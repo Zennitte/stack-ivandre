@@ -5,6 +5,7 @@
 \usepackage{lmodern}
 \usepackage[margin=2.2cm]{geometry}
 \usepackage{array,booktabs,longtable}
+\usepackage{amsmath}
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{xurl}
@@ -56,9 +57,26 @@ O treino contém 20.092 respostas, com 6.347 exemplos de \nolinkurl{c1}, 6.853 d
 
 BERTimbau recebe o texto original, com preenchimento dinâmico e limite de 512 tokens, incluindo os especiais. Esse limite afeta 2.174 respostas do treino (10,82\%). Os modelos lexicais recebem o texto inteiro em minúsculas, com frequência sublinear, IDF suavizado e normalização L2. A entrada se restringe à resposta textual. O pedido original e o conteúdo dos anexos ficam fora da representação.
 
+A normalização identifica 18.143 grupos de textos no treino, dos quais 316 contêm mais de um rótulo. Ela serve para separar os grupos e não substitui o texto recebido pelo classificador. A deduplicação exata reduz o peso de cópias redundantes sem resolver por convenção as divergências de anotação.
+
+\clearpage
 \section{Parâmetros e alternativas avaliados}
 
-Foram comparados os três classificadores individuais, a média 50/50 do EP1, médias duplas com pesos selecionados, médias duplas com calibração, média tripla e stacking com dois ou três componentes. Nas médias duplas, o peso de BERTimbau foi escolhido entre 0, 0,25, 0,50, 0,75 e 1. A calibração ajustou temperaturas entre 0,05 e 20 por perda logarítmica. A configuração de cada componente foi mantida fixa entre as comparações.
+O ponto de partida foi a média 50/50 entre BERTimbau e o modelo de palavras, estratégia do EP1. As alternativas variaram a forma de combinar as probabilidades e a inclusão do classificador de caracteres. A configuração de cada componente foi mantida fixa entre as comparações.
+
+\begingroup\small
+\begin{longtable}{@{}p{0.30\linewidth}p{0.64\linewidth}@{}}
+\toprule
+\textbf{Estratégia} & \textbf{Alternativas}\\
+\midrule
+Classificador individual & BERTimbau, TF-IDF de palavras ou TF-IDF de caracteres.\\
+Média dupla & Pesos iguais ou peso de BERTimbau em $\{0;0{,}25;0{,}50;0{,}75;1\}$. O peso de palavras é o complemento.\\
+Média dupla calibrada & Uma temperatura por componente, no intervalo de 0,05 a 20, ajustada por perda logarítmica. Após a calibração, aplica-se a mesma grade de pesos.\\
+Média tripla & Pesos iguais para os três componentes.\\
+Stacking & Regressão logística multinomial sobre seis probabilidades (duplo) ou nove (triplo).\\
+\bottomrule
+\end{longtable}
+\endgroup
 
 \section{Configuração final escolhida}
 
@@ -82,16 +100,51 @@ Stacking triplo & Regressão logística multinomial L2 com $C=1$ e nove probabil
 \end{longtable}
 \endgroup
 
+Os dois modelos TF-IDF ajustam a regressão com o solver \nolinkurl{lbfgs} e limite de 400 iterações. O combinador usa o mesmo solver com limite de 1.000 iterações. Para cada texto, as probabilidades de cada componente seguem a ordem \nolinkurl{c1}, \nolinkurl{c234}, \nolinkurl{c5}. O combinador recebe esses valores diretamente e aplica uma transformação multinomial conjunta para produzir as três probabilidades finais.
+
+\clearpage
 \section{Procedimento experimental}
 
 \subsection{Separação dos dados e validação}
 
-O desenvolvimento usou 12 rodadas de validação estratificada por grupos com cinco folds. Em cada fold, cerca de 64\% dos dados foram reservados ao ajuste dos componentes, 16\% à combinação e 20\% à avaliação. Os grupos foram mantidos separados entre as três parcelas. Os pesos e temperaturas das alternativas foram selecionados em três subdivisões da parcela de combinação. Cada linha integrou a avaliação uma vez por rodada. As médias entre rodadas são descritivas, pois as rodadas reutilizam as mesmas respostas.
+O desenvolvimento usou 12 rodadas de validação estratificada por grupos com cinco folds. Cada fold foi dividido em três parcelas disjuntas por grupo.
+
+\begingroup\small
+\begin{longtable}{@{}p{0.24\linewidth}rp{0.52\linewidth}@{}}
+\toprule
+\textbf{Parcela} & \textbf{Fração aproximada} & \textbf{Função}\\
+\midrule
+Ajuste & 64\% & Ajuste de BERTimbau, dos vocabulários e dos classificadores lexicais após deduplicação.\\
+Combinação & 16\% & Seleção de pesos, calibração e ajuste dos combinadores sobre previsões de componentes já treinados.\\
+Avaliação & 20\% & Comparação dos modelos em grupos separados do ajuste e da combinação.\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+Os pesos das médias foram selecionados por acurácia em três subdivisões da parcela de combinação, com Macro F1 como desempate. Na alternativa calibrada, a temperatura de cada componente foi estimada nas subdivisões de ajuste e aplicada às subdivisões retidas. As temperaturas foram então ajustadas novamente na parcela completa de combinação. O stacking também foi ajustado nessa parcela. Dessa forma, os rótulos da avaliação externa ficaram separados das decisões de cada fold.
+
+Cada linha integrou a avaliação externa uma vez por rodada. A acurácia da rodada usa todas as suas 20.092 previsões, e o resultado agregado é a média das 12 taxas. Os 60 ajustes do BERTimbau permitem observar a variação entre divisões. Como as rodadas reutilizam as mesmas respostas, as comparações entre rodadas são descritivas.
 
 \subsection{Ajuste final e previsão do teste}
 
-Os três componentes finais foram ajustados em 15.035 respostas após deduplicação. O combinador foi ajustado em outras 4.101 respostas de grupos distintos, usando as probabilidades dos componentes já treinados. O pacote final gerou os 897 rótulos do teste 2, cujo gabarito não está disponível.
+Na divisão final, uma partição estratificada de cinco blocos com seed 20269001 reservou um bloco para o combinador. Os demais blocos continham 15.991 linhas, das quais 15.035 permaneceram após a deduplicação. O combinador recebeu as previsões dos três componentes para as 4.101 respostas reservadas, sem interseção de grupos com o ajuste dos componentes.
 
+\begingroup\small
+\begin{longtable}{@{}lrrr@{}}
+\toprule
+\textbf{Classe} & \textbf{Ajuste dos componentes} & \textbf{Ajuste da combinação}\\
+\midrule
+\nolinkurl{c1} & 4.582 & 1.321\\
+\nolinkurl{c234} & 5.194 & 1.348\\
+\nolinkurl{c5} & 5.259 & 1.432\\
+\textbf{Total} & \textbf{15.035} & \textbf{4.101}\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+O pacote final gerou os 897 rótulos do teste 2. A planilha predita preserva a ordem das respostas e preenche a coluna \nolinkurl{clarity}. O gabarito desse conjunto não está disponível, portanto a comparação de desempenho com o EP1 usa exclusivamente o teste 1.
+
+\clearpage
 \section{Resultados do modelo final escolhido}
 
 \subsection{Desenvolvimento}
@@ -105,6 +158,8 @@ BERTimbau & 45,0876\% & 44,9667\%\\
 TF-IDF de palavras & 44,7948\% & 44,4939\%\\
 TF-IDF de caracteres & 44,4634\% & 44,2868\%\\
 Média 50/50 (estratégia do EP1) & 45,9329\% & 45,7694\%\\
+Média dupla ponderada & 45,9449\% & 45,7497\%\\
+Média dupla calibrada & 45,9669\% & 45,7781\%\\
 Média tripla & 46,1436\% & 45,9378\%\\
 Stacking duplo & 46,1282\% & 45,7854\%\\
 \textbf{Stacking triplo} & \textbf{46,1830\%} & 45,8372\%\\
@@ -114,6 +169,30 @@ Stacking duplo & 46,1282\% & 45,7854\%\\
 
 O stacking triplo obteve a maior acurácia média, com vantagem de 0,2501 ponto percentual sobre a média 50/50 e melhora em 11 das 12 rodadas. A média tripla obteve o maior Macro F1. O stacking também apresentou menor erro de calibração que a média 50/50 (ECE de 0,01370 ante 0,04529).
 
+\begingroup\small
+\begin{longtable}{@{}rrrr@{}}
+\toprule
+\textbf{Rodada} & \textbf{Média 50/50} & \textbf{Stacking triplo} & \textbf{Diferença (p.p.)}\\
+\midrule
+1 & 46,1826\% & 46,0482\% & $-0{,}1344$\\
+2 & 46,0979\% & 46,3169\% & $+0{,}2190$\\
+3 & 45,6052\% & 45,8839\% & $+0{,}2787$\\
+4 & 46,1328\% & 46,3767\% & $+0{,}2439$\\
+5 & 45,9088\% & 46,2970\% & $+0{,}3882$\\
+6 & 45,6699\% & 45,8043\% & $+0{,}1344$\\
+7 & 46,0930\% & 46,2025\% & $+0{,}1095$\\
+8 & 45,8292\% & 46,2821\% & $+0{,}4529$\\
+9 & 45,4957\% & 46,0382\% & $+0{,}5425$\\
+10 & 46,1328\% & 46,4862\% & $+0{,}3534$\\
+11 & 45,9337\% & 46,1776\% & $+0{,}2439$\\
+12 & 46,1129\% & 46,2821\% & $+0{,}1692$\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+O ganho médio ficou abaixo da margem de simplicidade de 0,5 ponto percentual, pela qual a média 50/50 seria preferida. O modelo entregue é o stacking triplo, que teve a maior acurácia média entre as estratégias avaliadas. A diferença em relação ao stacking duplo foi de 0,0547 ponto percentual. Em desenvolvimento, o triplo aumentou o recall de \nolinkurl{c1} e \nolinkurl{c5}, enquanto o recall de \nolinkurl{c234} caiu de 37,85\% para 34,07\%.
+
+\clearpage
 \subsection{Comparação com o EP1 no teste 1}
 
 O pacote final foi comparado com as previsões originalmente entregues no EP1 nas mesmas 900 respostas, com 300 exemplos de cada classe.
@@ -129,15 +208,61 @@ EP2 & 462/900 & 51,33\% & 50,81\%\\
 \end{longtable}
 \endgroup
 
-Os dois modelos acertaram 378 respostas e erraram 373. Apenas o EP1 acertou 65 respostas e apenas o EP2 acertou 84. A melhora foi de 2,11 pontos percentuais. O teste de McNemar exato bilateral resultou em $p=0{,}1401$ (estatística descritiva sem correção de 2,4228). A diferença observada ficou aquém do nível de significância de 5\%.
+\begingroup\small
+\begin{longtable}{@{}lrr@{}}
+\toprule
+ & \textbf{EP2 correto} & \textbf{EP2 incorreto}\\
+\midrule
+EP1 correto & 378 & 65\\
+EP1 incorreto & 84 & 373\\
+\bottomrule
+\end{longtable}
+\endgroup
 
-O recall de \nolinkurl{c1} passou de 47,33\% para 55,67\%, e o de \nolinkurl{c5} de 56,67\% para 61,33\%. Para \nolinkurl{c234}, caiu de 43,67\% para 37,00\%. O teste já havia sido usado em avaliações anteriores. Há 88 respostas idênticas a textos de treino, 105 após normalização, além de duplicatas e rótulos conflitantes no próprio teste. Esses fatores limitam a interpretação da comparação como evidência de generalização.
+A melhora foi de 2,11 pontos percentuais, com 19 acertos adicionais no saldo. McNemar considera os 149 casos em que somente um modelo acertou. Sob a hipótese de acurácias marginais iguais, o número de acertos exclusivos de um modelo segue uma binomial com probabilidade $1/2$, condicionada ao total de pares discordantes.
+\[
+p = 2\sum_{k=0}^{65} \binom{149}{k}2^{-149} = 0{,}1401.
+\]
+A estatística de McNemar sem correção é $(84-65)^2/149 = 2{,}4228$. A conclusão usa o teste exato bilateral. A diferença observada ficou aquém do nível de significância de 5\%.
 
+\begingroup\small
+\begin{longtable}{@{}lrrrrrr@{}}
+\toprule
+& \multicolumn{3}{c}{\textbf{EP1 (\%)}} & \multicolumn{3}{c}{\textbf{EP2 (\%)}}\\
+\cmidrule(lr){2-4}\cmidrule(l){5-7}
+\textbf{Classe} & Precisão & Recall & F1 & Precisão & Recall & F1\\
+\midrule
+\nolinkurl{c1} & 51,45 & 47,33 & 49,31 & 52,19 & 55,67 & 53,87\\
+\nolinkurl{c234} & 43,67 & 43,67 & 43,67 & 47,03 & 37,00 & 41,42\\
+\nolinkurl{c5} & 52,47 & 56,67 & 54,49 & 53,49 & 61,33 & 57,14\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+As duas classes extremas ganharam recall. Para \nolinkurl{c234}, a precisão aumentou e o recall caiu, com redução do F1. O Macro F1 do modelo subiu porque as duas outras classes compensaram essa perda.
+
+O teste já havia sido usado em avaliações anteriores. Há 88 respostas idênticas a textos de treino e 105 após normalização. O próprio teste contém 12 grupos de textos exatos duplicados, dos quais dez têm rótulos conflitantes. A comparação mantém as 900 linhas entregues e deve ser interpretada como avaliação histórica, com dependência potencial entre as respostas.
+
+\clearpage
 \subsection{Interpretação e análise de erros}
 
 No modelo de palavras da primeira divisão, os termos \emph{demanda} e \emph{não se} têm coeficientes positivos para \nolinkurl{c1}, \emph{sistemas} e \emph{concurso} para \nolinkurl{c234}, e \emph{dnpm} e \emph{questionário} para \nolinkurl{c5}. Esses pesos refletem associações no conjunto de treino, inclusive vocabulário específico de órgãos e procedimentos.
 
-A contribuição local de cada termo resulta do produto entre o TF-IDF e o coeficiente da classe. Em uma resposta que remetia a anexos (linha 6636, com índice iniciado em zero), \emph{encaminhamos} contribuiu com $+0{,}1179$ para o escore de \nolinkurl{c5}. O classificador de palavras acertou a classe, enquanto a combinação selecionada naquele fold previu \nolinkurl{c234}. Em outra resposta, uma justificativa de sigilo acompanhava informação parcial. A combinação previu \nolinkurl{c1} para um exemplo de \nolinkurl{c234}. O texto excedia 512 tokens, e o pedido original seria necessário para avaliar a adequação da resposta.
+A contribuição local de cada termo resulta do produto entre o TF-IDF e o coeficiente da classe. O escore do modelo de palavras é a soma dessas contribuições e do intercepto. A tabela mostra três erros da combinação selecionada nas divisões de desenvolvimento. Os índices começam em zero na planilha de treino.
+
+\begingroup\small
+\begin{longtable}{@{}rl lp{0.62\linewidth}@{}}
+\toprule
+\textbf{Linha} & \textbf{Real} & \textbf{Prevista} & \textbf{Observação}\\
+\midrule
+6636 & c5 & c234 & A resposta remete a anexos. O modelo de palavras acertou a classe e o termo \emph{encaminhamos} contribuiu com $+0{,}1179$ para o escore de c5.\\
+4056 & c234 & c1 & A resposta combina justificativa de sigilo com informação parcial. Com 843 tokens, parte do conteúdo fica além do limite de BERTimbau.\\
+10299 & c5 & c1 & Uma resposta curta remete a protocolo anterior. A adequação do encaminhamento depende de contexto ausente da entrada.\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+O caso 6636 ilustra como a combinação pode errar mesmo quando um dos componentes acerta. Nos outros casos, o truncamento e a falta de contexto são hipóteses para explicar os erros observados. O escore lexical descreve apenas a decisão do componente de palavras.
 
 \section{Repositório de código}
 
@@ -153,6 +278,6 @@ python -m pip install -r requirements.txt --extra-index-url https://download.pyt
 python predict.py --input data/test.xlsx --sheet test2 --output predictions/nova_execucao.xlsx --device cpu
 \end{lstlisting}
 
-A saída preserva as linhas e o conteúdo original da planilha e preenche \nolinkurl{clarity}. O código de ajuste final, o split e a revisão do pré-treinado constam no repositório.
+A saída preserva as linhas e o conteúdo original da planilha e preenche \nolinkurl{clarity}. Para reconstruir o ajuste final, o README indica a revisão de BERTimbau, o ambiente CUDA e o comando \nolinkurl{python train.py}. O repositório inclui a divisão final e o manifesto dos pesos.
 
 \end{document}
