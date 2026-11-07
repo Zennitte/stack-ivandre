@@ -1,0 +1,24 @@
+{
+  "environment": {
+    "joblib": "1.5.2",
+    "numpy": "2.2.6",
+    "openpyxl": "3.1.5",
+    "python": "3.12.14",
+    "safetensors": "0.6.2",
+    "scikit-learn": "1.7.2",
+    "scipy": "1.15.3",
+    "tokenizers": "0.22.1",
+    "torch": "2.9.0+cu128",
+    "transformers": "4.56.2"
+  },
+  "files": {
+    "train_final.py": "7308dd1c3ffaa5c5b1f25d9f1b198fc0ca54590192d6cbd70d5a2de8e1a666d3",
+    "final/final_split.json": "51c0555b5a53c9d7a7e637ed665e3091b1d46e7a2acc30ee499fd0c77b3b892e",
+    "splits/frozen_v1/protocol.json": "76496767854f972a4389adf728976a0b12506ff2402ff5df0c6657f045a57923",
+    "scripts/bert_engine.py": "7eb5402cf0fc8342104ced6561f15a6444c6442885c0fc27ded57b3cbc581e27",
+    "scripts/common.py": "7f3101e001a3b2e57978c0d4f98902d6e3d18345edaa0b86cf3bdf4d0d5782dc",
+    "scripts/ensembles.py": "d78776e48acee6fd880ca1292d94072a77195a3067596e7d0011892ac028b95f",
+    "scripts/lexical.py": "369a959a31535ee60e1f61c4a237d37fd870e41ce02d372df0c95a4aa5a22c14",
+    "scripts/runtime.py": "9c562771b2fb85ea5dc771857d8e7778d89b0b67da215a562ab96d085bd9f5c4"
+  }
+}

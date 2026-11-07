@@ -1,0 +1,9 @@
+{
+  "source_model_manifest_sha256": "bb5531606b5c7e59d3334ef9b3db76377fdeeca50b5fc3f6f48cd0612f12d1b8",
+  "published_model_manifest_sha256": "0a23364874c5d5cc535306db4070eb4271253b32c973be6eeb6055d06d2113d3",
+  "train_sha256": "0e9219233664ac675fc47982bbc822acd3bb15d67fb7bfc26b67bec047e46818",
+  "test2_sha256": "7627707d4b1f172cd4cd7dbb15f86fd63978b689b675faa821c761786cd139d9",
+  "test2_predictions_sha256": "ceff6b5a94d19e4e3b00fb45c30ee6ba29a585cae3682da717148223b60d3ffb",
+  "ep1_commit": "596f81606913d13d3d51910fa49b4710ce261421",
+  "ep1_predictions_sha256": "4c34dfd617d2ac8e493f6e44d40574fd27bdf874f290570ca152e70efb31d603"
+}

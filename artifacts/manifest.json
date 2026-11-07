@@ -1,0 +1,19 @@
+{
+  "family": "stack_three",
+  "source_package_manifest_sha256": "bb5531606b5c7e59d3334ef9b3db76377fdeeca50b5fc3f6f48cd0612f12d1b8",
+  "files": {
+    "bert/config.json": "a9869e5fdf3f7b182afce6da6e7d96b57583eab790954de4f92ddbbc86a5d7df",
+    "bert/model.safetensors": "05351ac01f2b59ced3d69f525f66cf0e5470e817806ee9f87ad6e37b1df79a02",
+    "bert/special_tokens_map.json": "3c3507f36dff57bce437223db3b3081d1e2b52ec3e56ee55438193ecb2c94dd6",
+    "bert/tokenizer.json": "45ccb3e514665f3b11b5e2a8e1a3e29765d94330bc7232aa46c4cdc485bc8881",
+    "bert/tokenizer_config.json": "7525d84e2d59af28db08243599eb1da698db5f415be9fc1f5a41332d27be405b",
+    "bert/vocab.txt": "69c28584c67a0e5018f85ca734aa272cc38e26b5dd0d33fffa28059299f21707",
+    "char.joblib": "30425e2c41dac2313ddad0d39d60479b23f232b52520fc158732426f8685c5eb",
+    "inference.py": "b46f0c0c58638ac71d94ecd5e902a3fcab4af3ad75c8b390972d9e7d69799245",
+    "inference_config.json": "42e1edfbef4d2600dc9f66603888e627131e22b1e15858f6a506f38d922a3ee9",
+    "predict.py": "434cc44a3e85a13a28087d5e35a1ddd2d07af0b1b646d8fcc82efc75b8bd285c",
+    "stacker.joblib": "39b9874be5d117bb08f15775754f71945b3344e86f5e9294696184a8d88cee57",
+    "word.joblib": "ebf8393ddbe9b81c269bc5e7fad03b3659fb55ecfd4558c69de913583c5c638a",
+    "xlsx_preserve.py": "1d575fa85621e7d2567dd7281c6a2272367211e029bf663e07d903aa3e03b0a6"
+  }
+}

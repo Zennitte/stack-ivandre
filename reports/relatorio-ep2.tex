@@ -1,0 +1,158 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{array,booktabs,longtable}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\urlstyle{tt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+\setlength{\emergencystretch}{2em}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.2}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,breakatwhitespace=false,columns=fullflexible,keepspaces=true,showstringspaces=false,frame=single,rulecolor=\color{black!25},backgroundcolor=\color{black!3},aboveskip=0.7em,belowskip=0.7em}
+\hypersetup{pdftitle={Relatório do EP2 -- Classificação de clareza de respostas e-SIC},pdfsubject={ACH2118 -- Introdução ao Processamento de Língua Natural}}
+\begin{document}
+\begin{center}
+{\LARGE\bfseries Relatório do EP2\par}
+\vspace{0.3em}
+{\large Classificação de clareza de respostas e-SIC\par}
+\vspace{0.7em}
+\textbf{Disciplina:} ACH2118 -- Introdução ao Processamento de Língua Natural\\
+\textbf{Professor:} Ivandré Paraboni\\
+\textbf{Projeto:} stack-ivandre
+\end{center}
+\vspace{0.5em}
+
+\section{Integrantes efetivos do grupo}
+
+\begingroup\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.57\linewidth}>{\raggedright\arraybackslash}p{0.38\linewidth}@{}}
+\toprule
+\textbf{Nome completo} & \textbf{Número USP}\\
+\midrule
+Aaron Ferraz do Amaral Martins da Silva & 14554474\\
+Geovanny Luan Piedade Barcelos & 14573909\\
+Valéria Caroline Silva & 14677401\\
+Kauê Camargo Marinho & 14677422\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+\section{Introdução e estratégia escolhida}
+
+O objetivo é classificar a clareza de respostas a pedidos de informação do e-SIC. A entrada é o texto da resposta (\nolinkurl{resp_text}) e a saída é um dos três rótulos da coluna \nolinkurl{clarity}: \nolinkurl{c1} (nota 1), \nolinkurl{c234} (notas 2 a 4) ou \nolinkurl{c5} (nota 5).
+
+O EP1 combinava BERTimbau e TF-IDF de palavras por média de probabilidades. O EP2 acrescenta um classificador de caracteres e aprende a combinação dos três modelos por \textbf{stacking}. Cada componente estima três probabilidades. A concatenação dessas nove entradas alimenta uma regressão logística multinomial, que atribui a classe de maior probabilidade.
+
+\section{Dados e pré-processamento}
+
+O treino contém 20.092 respostas, com 6.347 exemplos de \nolinkurl{c1}, 6.853 de \nolinkurl{c234} e 6.892 de \nolinkurl{c5}. As divisões agrupam textos iguais após normalização Unicode NFC, \nolinkurl{casefold} e colapso de espaços. Dentro da parcela destinada ao ajuste dos componentes, mantém-se a primeira ocorrência de cada par de texto exato e rótulo. Textos iguais com rótulos diferentes são preservados.
+
+BERTimbau recebe o texto original, com preenchimento dinâmico e limite de 512 tokens, incluindo os especiais. Esse limite afeta 2.174 respostas do treino (10,82\%). Os modelos lexicais recebem o texto inteiro em minúsculas, com frequência sublinear, IDF suavizado e normalização L2. A entrada se restringe à resposta textual. O pedido original e o conteúdo dos anexos ficam fora da representação.
+
+\section{Parâmetros e alternativas avaliados}
+
+Foram comparados os três classificadores individuais, a média 50/50 do EP1, médias duplas com pesos selecionados, médias duplas com calibração, média tripla e stacking com dois ou três componentes. Nas médias duplas, o peso de BERTimbau foi escolhido entre 0, 0,25, 0,50, 0,75 e 1. A calibração ajustou temperaturas entre 0,05 e 20 por perda logarítmica. A configuração de cada componente foi mantida fixa entre as comparações.
+
+\section{Configuração final escolhida}
+
+\begingroup\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.26\linewidth}>{\raggedright\arraybackslash}p{0.69\linewidth}@{}}
+\toprule
+\textbf{Componente} & \textbf{Configuração}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Configuração}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+BERTimbau & Base cased, seed 20260941, AdamW com taxa de aprendizado $2\times10^{-5}$ e decaimento de pesos 0,01. Lote efetivo 8, 3.557 atualizações, agenda linear com horizonte de 4.702 passos e aquecimento de 470.\\
+TF-IDF de palavras & Unigramas e bigramas. Regressão logística L2 com $C=0{,}5$.\\
+TF-IDF de caracteres & N-gramas de 3 a 5 caracteres dentro das palavras (\nolinkurl{char_wb}). Regressão logística L2 com $C=1$.\\
+Vocabulário lexical & Frequência documental mínima de 3 e até 100.000 características por componente.\\
+Stacking triplo & Regressão logística multinomial L2 com $C=1$ e nove probabilidades brutas na ordem BERTimbau, palavras e caracteres.\\
+\end{longtable}
+\endgroup
+
+\section{Procedimento experimental}
+
+\subsection{Separação dos dados e validação}
+
+O desenvolvimento usou 12 rodadas de validação estratificada por grupos com cinco folds. Em cada fold, cerca de 64\% dos dados foram reservados ao ajuste dos componentes, 16\% à combinação e 20\% à avaliação. Os grupos foram mantidos separados entre as três parcelas. Os pesos e temperaturas das alternativas foram selecionados em três subdivisões da parcela de combinação. Cada linha integrou a avaliação uma vez por rodada. As médias entre rodadas são descritivas, pois as rodadas reutilizam as mesmas respostas.
+
+\subsection{Ajuste final e previsão do teste}
+
+Os três componentes finais foram ajustados em 15.035 respostas após deduplicação. O combinador foi ajustado em outras 4.101 respostas de grupos distintos, usando as probabilidades dos componentes já treinados. O pacote final gerou os 897 rótulos do teste 2, cujo gabarito não está disponível.
+
+\section{Resultados do modelo final escolhido}
+
+\subsection{Desenvolvimento}
+
+\begingroup\small
+\begin{longtable}{@{}lrr@{}}
+\toprule
+\textbf{Modelo} & \textbf{Acurácia média} & \textbf{Macro F1 médio}\\
+\midrule
+BERTimbau & 45,0876\% & 44,9667\%\\
+TF-IDF de palavras & 44,7948\% & 44,4939\%\\
+TF-IDF de caracteres & 44,4634\% & 44,2868\%\\
+Média 50/50 (estratégia do EP1) & 45,9329\% & 45,7694\%\\
+Média tripla & 46,1436\% & 45,9378\%\\
+Stacking duplo & 46,1282\% & 45,7854\%\\
+\textbf{Stacking triplo} & \textbf{46,1830\%} & 45,8372\%\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+O stacking triplo obteve a maior acurácia média, com vantagem de 0,2501 ponto percentual sobre a média 50/50 e melhora em 11 das 12 rodadas. A média tripla obteve o maior Macro F1. O stacking também apresentou menor erro de calibração que a média 50/50 (ECE de 0,01370 ante 0,04529).
+
+\subsection{Comparação com o EP1 no teste 1}
+
+O pacote final foi comparado com as previsões originalmente entregues no EP1 nas mesmas 900 respostas, com 300 exemplos de cada classe.
+
+\begingroup\small
+\begin{longtable}{@{}lrrr@{}}
+\toprule
+\textbf{Modelo} & \textbf{Acertos} & \textbf{Acurácia} & \textbf{Macro F1}\\
+\midrule
+EP1 & 443/900 & 49,22\% & 49,15\%\\
+EP2 & 462/900 & 51,33\% & 50,81\%\\
+\bottomrule
+\end{longtable}
+\endgroup
+
+Os dois modelos acertaram 378 respostas e erraram 373. Apenas o EP1 acertou 65 respostas e apenas o EP2 acertou 84. A melhora foi de 2,11 pontos percentuais. O teste de McNemar exato bilateral resultou em $p=0{,}1401$ (estatística descritiva sem correção de 2,4228). A diferença observada ficou aquém do nível de significância de 5\%.
+
+O recall de \nolinkurl{c1} passou de 47,33\% para 55,67\%, e o de \nolinkurl{c5} de 56,67\% para 61,33\%. Para \nolinkurl{c234}, caiu de 43,67\% para 37,00\%. O teste já havia sido usado em avaliações anteriores. Há 88 respostas idênticas a textos de treino, 105 após normalização, além de duplicatas e rótulos conflitantes no próprio teste. Esses fatores limitam a interpretação da comparação como evidência de generalização.
+
+\subsection{Interpretação e análise de erros}
+
+No modelo de palavras da primeira divisão, os termos \emph{demanda} e \emph{não se} têm coeficientes positivos para \nolinkurl{c1}, \emph{sistemas} e \emph{concurso} para \nolinkurl{c234}, e \emph{dnpm} e \emph{questionário} para \nolinkurl{c5}. Esses pesos refletem associações no conjunto de treino, inclusive vocabulário específico de órgãos e procedimentos.
+
+A contribuição local de cada termo resulta do produto entre o TF-IDF e o coeficiente da classe. Em uma resposta que remetia a anexos (linha 6636, com índice iniciado em zero), \emph{encaminhamos} contribuiu com $+0{,}1179$ para o escore de \nolinkurl{c5}. O classificador de palavras acertou a classe, enquanto a combinação selecionada naquele fold previu \nolinkurl{c234}. Em outra resposta, uma justificativa de sigilo acompanhava informação parcial. A combinação previu \nolinkurl{c1} para um exemplo de \nolinkurl{c234}. O texto excedia 512 tokens, e o pedido original seria necessário para avaliar a adequação da resposta.
+
+\section{Repositório de código}
+
+O código, os modelos ajustados, a configuração, as planilhas e as métricas agregadas estão disponíveis em \url{https://github.com/Zennitte/stack-ivandre}. As instruções de instalação, inferência e treinamento estão no \nolinkurl{README.md}.
+
+\section{Instruções de reprodução}
+
+Com Python 3.12 e Git LFS, obtenha os pesos e instale as dependências. O exemplo usa o índice de rodas PyTorch para CPU.
+
+\begin{lstlisting}
+git lfs pull
+python -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+python predict.py --input data/test.xlsx --sheet test2 --output predictions/nova_execucao.xlsx --device cpu
+\end{lstlisting}
+
+A saída preserva as linhas e o conteúdo original da planilha e preenche \nolinkurl{clarity}. O código de ajuste final, o split e a revisão do pré-treinado constam no repositório.
+
+\end{document}
